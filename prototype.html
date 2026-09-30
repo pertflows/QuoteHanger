@@ -1,0 +1,691 @@
+<title>Light Hanger Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one working screen. The house photo is the stage; a narrow control rail on the right walks the homeowner through three steps. Single night theme on purpose: this is a tool for seeing lights after dark. */
+:root{
+  --night:#0c1220;
+  --panel:#141c2c;
+  --raise:#1b2539;
+  --line:#2a3650;
+  --fg:#e9edf5;
+  --muted:#93a0b8;
+  --bulb:#ffc66e;
+  --bulb-ink:#2a1a00;
+  --ok:#72d6a4;
+  --warn:#f3a95c;
+  --f-display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Figtree",ui-sans-serif,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--night);color:var(--fg);font:15px/1.5 var(--f-body);}
+.app{display:flex;flex-direction:column;min-height:100%;padding-inline:16px;padding-block:14px 20px;gap:12px;max-width:1500px;margin:0 auto}
+header.top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.brand{font:700 22px/1 var(--f-display);letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.brand .dot{width:12px;height:12px;border-radius:50%;background:var(--bulb);box-shadow:0 0 12px 3px rgba(255,198,110,.55)}
+.tag{font:600 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--warn);border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);padding:5px 8px;border-radius:4px}
+.sub{color:var(--muted);font-size:14px}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:minmax(0,1fr)}}
+
+/* stage */
+.stage{display:flex;flex-direction:column;gap:10px;min-width:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hint{flex:1 1 260px;min-width:0;font-size:14px;color:var(--fg);background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.hint b{color:var(--bulb);font-weight:600}
+.canvas-wrap{background:#05080f;border:1px solid var(--line);border-radius:10px;display:flex;justify-content:center;align-items:center;overflow:hidden;position:relative}
+canvas#stage{display:block;max-width:100%;max-height:72vh;width:auto;height:auto;touch-action:none;cursor:crosshair}
+canvas#stage.select{cursor:default}
+.sample-flag{position:absolute;left:10px;top:10px;font:600 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;background:rgba(12,18,32,.75);color:var(--muted);padding:6px 8px;border-radius:4px;pointer-events:none}
+.ctrl{display:flex;align-items:center;gap:8px;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--muted)}
+.ctrl input[type=range]{width:110px;accent-color:var(--bulb)}
+
+button{font:600 13px/1 var(--f-body);color:var(--fg);background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:9px 12px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--bulb);outline-offset:2px}
+button.primary{background:var(--bulb);color:var(--bulb-ink);border-color:var(--bulb)}
+button.primary:hover{filter:brightness(1.07)}
+button[disabled]{opacity:.45;cursor:not-allowed}
+
+/* rail */
+.rail{background:var(--panel);border:1px solid var(--line);border-radius:12px;display:flex;flex-direction:column;min-width:0}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line)}
+.steps button{border:0;border-radius:0;background:transparent;padding:14px 6px 12px;color:var(--muted);display:flex;flex-direction:column;gap:5px;align-items:center;border-bottom:2px solid transparent}
+.steps button .n{font:600 11px/1 var(--f-mono);letter-spacing:.06em}
+.steps button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--bulb)}
+.pane{padding:16px;display:flex;flex-direction:column;gap:14px}
+.pane h2{font:700 19px/1.2 var(--f-display);margin:0;text-wrap:balance}
+.pane p{margin:0;color:var(--muted);font-size:14px}
+.label{font:600 11px/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tips{margin:0;padding-left:18px;color:var(--muted);font-size:14px;display:grid;gap:4px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.upload{display:flex;flex-direction:column;align-items:center;gap:6px;border:1.5px dashed var(--line);border-radius:10px;padding:20px 12px;text-align:center;cursor:pointer;color:var(--muted)}
+.upload:hover,.upload.drag{border-color:var(--bulb);color:var(--fg)}
+.upload strong{color:var(--fg);font-weight:600}
+
+.products{display:grid;gap:6px}
+.prod{display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;text-align:left;padding:8px 10px;font-weight:500}
+.prod .sw{height:22px;border-radius:4px;background:#070b14;display:block}
+.prod .pr{font:500 12px/1 var(--f-mono);color:var(--muted)}
+.prod[aria-pressed=true]{border-color:var(--bulb);background:color-mix(in srgb,var(--bulb) 12%,var(--raise))}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.modes button[aria-pressed=true]{border-color:var(--bulb);color:var(--bulb)}
+select,input[type=text],input[type=email],input[type=tel],input[type=number]{width:100%;font:15px/1.3 var(--f-body);color:var(--fg);background:var(--night);border:1px solid var(--line);border-radius:8px;padding:9px 10px}
+.field{display:grid;gap:6px}
+.selbox{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:14px}
+.tot{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:12px}
+.tot .big{font:600 22px/1 var(--f-mono);color:var(--bulb)}
+table.bom{width:100%;border-collapse:collapse;font-size:13px}
+table.bom td,table.bom th{padding:7px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.bom th{font:600 11px/1 var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+table.bom .num{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.fine{font-size:12px;color:var(--muted)}
+.scalebox{background:color-mix(in srgb,var(--warn) 10%,var(--raise));border:1px solid color-mix(in srgb,var(--warn) 40%,var(--line));border-radius:8px;padding:10px 12px;display:grid;gap:8px;font-size:14px}
+.lead{background:var(--raise);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.lead img{display:block;width:100%}
+.lead .body{padding:12px;display:grid;gap:6px;font-size:14px}
+.lead .when{font:500 12px/1 var(--f-mono);color:var(--ok)}
+.next{border-left:3px solid var(--bulb);padding:2px 0 2px 12px;display:grid;gap:4px}
+.next strong{font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="dot" aria-hidden="true"></span>Light Hanger</div>
+    <span class="tag">Prototype</span>
+    <span class="sub">Hang lights on your own house, see it at night, get a price.</span>
+  </header>
+
+  <div class="main">
+    <section class="stage">
+      <div class="toolbar">
+        <div class="hint" id="hint">Loading…</div>
+        <label class="ctrl" for="night">Day <input id="night" type="range" min="0" max="100" value="85"> Night</label>
+        <button id="compare" title="Hold to see the house without lights">Hold: before</button>
+        <button id="undo" title="Undo (Ctrl+Z)">Undo</button>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="stage" width="1600" height="1000" aria-label="House photo with placed lights"></canvas>
+        <span class="sample-flag" id="sampleFlag">Sample house</span>
+      </div>
+    </section>
+
+    <aside class="rail">
+      <div class="steps" role="tablist">
+        <button role="tab" id="tab1" aria-selected="false" data-step="1"><span class="n">STEP 1</span>Your photo</button>
+        <button role="tab" id="tab2" aria-selected="true" data-step="2"><span class="n">STEP 2</span>Hang lights</button>
+        <button role="tab" id="tab3" aria-selected="false" data-step="3"><span class="n">STEP 3</span>Get my quote</button>
+      </div>
+
+      <!-- STEP 1 -->
+      <div class="pane" id="pane1" hidden>
+        <h2>Start with a photo of your house</h2>
+        <label class="upload" id="drop" for="file">
+          <strong>Choose a photo</strong>
+          <span>or drop one here. JPG or PNG.</span>
+        </label>
+        <input id="file" type="file" accept="image/*" hidden>
+        <button id="useSample">Use the sample house instead</button>
+        <div class="label">For the best result</div>
+        <ul class="tips">
+          <li>Stand across the street and face the house straight on.</li>
+          <li>Take it in daylight. We turn it to night for you.</li>
+          <li>Get the whole roofline in the frame.</li>
+        </ul>
+        <div class="label">Measurements</div>
+        <p>Feet and price come from the scale. Draw a line along something you know, like a garage door (usually 16 ft wide).</p>
+        <button id="scaleBtn">Set the scale</button>
+        <div class="scalebox" id="scaleBox" hidden>
+          <span id="scaleMsg">Click two points on the photo.</span>
+          <div class="row" id="scaleEntry" hidden>
+            <input id="scaleFt" type="number" min="1" step="0.5" value="16" style="flex:1" aria-label="Length in feet">
+            <button class="primary" id="scaleApply">Use as feet</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="pane" id="pane2">
+        <h2>Pick a light, then click along the house</h2>
+        <div class="modes">
+          <button id="modeSelect" aria-pressed="false">Select &amp; move</button>
+          <button id="modeDraw" aria-pressed="true">Hang lights</button>
+        </div>
+        <div class="products" id="products"></div>
+        <div class="field" id="patternField" hidden>
+          <label class="label" for="pattern">Permanent track pattern</label>
+          <select id="pattern">
+            <option value="warm">Warm white</option>
+            <option value="candy">Candy cane</option>
+            <option value="redgreen">Red &amp; green</option>
+            <option value="rainbow">Rainbow chase (animated)</option>
+          </select>
+        </div>
+        <div class="row">
+          <button class="primary" id="finish" hidden>Finish this strand</button>
+        </div>
+        <div class="selbox" id="selBox" hidden>
+          <span id="selText"></span>
+          <button id="delSel">Delete</button>
+        </div>
+        <div class="tot">
+          <span><span class="label">Estimate</span><br><span class="fine" id="ftTotal">0 ft of lights</span></span>
+          <span class="big" id="estTotal">$0</span>
+        </div>
+        <div class="row">
+          <button id="clearAll">Clear all</button>
+          <button class="primary" id="toQuote" style="flex:1">See my quote</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="pane" id="pane3" hidden>
+        <h2>Your design and estimate</h2>
+        <table class="bom" id="bom"></table>
+        <p class="fine">Example rates for the prototype. Each contractor sets their own prices. This is a concept picture and a ballpark, not a final quote.</p>
+        <form id="leadForm" class="pane" style="padding:0">
+          <div class="label">Send it to the installer</div>
+          <div class="field"><label for="lname">Name</label><input id="lname" type="text" required autocomplete="name" value="Jordan Rivera"></div>
+          <div class="field"><label for="lemail">Email</label><input id="lemail" type="email" required autocomplete="email" value="jordan@example.com"></div>
+          <div class="field"><label for="lphone">Phone</label><input id="lphone" type="tel" autocomplete="tel" value="(516) 555-0142"></div>
+          <button class="primary" type="submit">Send my design</button>
+          <p class="fine">Prototype: the form is filled with example details and nothing is sent.</p>
+        </form>
+        <div id="leadOut" hidden>
+          <div class="label" style="margin-bottom:8px">What the contractor receives</div>
+          <div class="lead">
+            <img id="leadImg" alt="The homeowner's lighting design">
+            <div class="body" id="leadBody"></div>
+          </div>
+        </div>
+        <div class="next">
+          <strong>Next: photo-real finish</strong>
+          <span class="fine">The layout you drew goes to the AI image model together with the photo, so the render puts lights exactly where you hung them.</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(() => {
+const cv = document.getElementById('stage');
+const ctx = cv.getContext('2d');
+let W = cv.width, H = cv.height;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const PRODUCTS = {
+  c9warm:  {name:'C9 bulbs, warm white', kind:'strand', spacing:1,    r:.14, colors:['#ffcf7a'], rate:4.5,  wash:true},
+  c9multi: {name:'C9 bulbs, multicolor', kind:'strand', spacing:1,    r:.14, colors:['#ff4b4b','#43d86b','#3f8bff','#ffc24b','#ff7be0'], rate:4.5, wash:true},
+  mini:    {name:'Mini lights, bushes & trees', kind:'strand', spacing:.3, r:.05, colors:['#ffd996'], rate:3, jitter:true},
+  icicle:  {name:'Icicle lights, cool white', kind:'icicle', spacing:.5, r:.05, colors:['#e8f1ff'], rate:5.5},
+  rgb:     {name:'Permanent RGB track', kind:'rgb', spacing:.5, r:.08, rate:32, wash:true},
+  wreath:  {name:'Lit wreath, 36 in', kind:'item', rate:95, size:3, each:true},
+  spot:    {name:'Uplight', kind:'spot', rate:70, each:true},
+};
+
+// ---------- state ----------
+const state = {
+  night:.85, ppf:15.5, scaleEstimated:false, sample:true,
+  strands:[], items:[],
+  mode:'draw', product:'c9warm', pattern:'candy',
+  draft:null, sel:null, cursor:null, compare:false,
+  scalePts:null, step:2,
+};
+let bg = null;
+let uid = 1;
+const history = [];
+
+function snapshot(){ return JSON.stringify({s:state.strands,i:state.items}); }
+function pushHistory(){ history.push(snapshot()); if(history.length>80) history.shift(); }
+function undo(){
+  if(state.draft && state.draft.pts.length){ state.draft.pts.pop(); if(!state.draft.pts.length) state.draft=null; changed(); return; }
+  const h = history.pop(); if(!h) return;
+  const o = JSON.parse(h); state.strands=o.s; state.items=o.i; state.sel=null; changed();
+}
+
+// ---------- helpers ----------
+function hex(c){ const n=parseInt(c.slice(1),16); return [n>>16&255,n>>8&255,n&255]; }
+function mix(a,b,t){ const A=hex(a),B=hex(b); return 'rgb('+A.map((v,i)=>Math.round(v+(B[i]-v)*t)).join(',')+')'; }
+function rnd(a,b){ let h=(a*374761393 + b*668265263)|0; h=Math.imul(h^(h>>>13),1274126177); return ((h^(h>>>16))>>>0)/4294967296; }
+function hueHex(h){ h=((h%360)+360)%360; const f=n=>{const k=(n+h/30)%12; const v=.6-.4*Math.max(-1,Math.min(k-3,9-k,1)); return Math.round(v*255);}; return '#'+[f(0),f(8),f(4)].map(v=>v.toString(16).padStart(2,'0')).join(''); }
+function polyLen(pts){ let L=0; for(let i=1;i<pts.length;i++) L+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]); return L; }
+function sample(pts, step){
+  const out=[]; if(!pts.length) return out;
+  if(pts.length===1){ out.push({x:pts[0][0],y:pts[0][1]}); return out; }
+  let carry=0;
+  for(let i=1;i<pts.length;i++){
+    const [x0,y0]=pts[i-1],[x1,y1]=pts[i]; const L=Math.hypot(x1-x0,y1-y0); if(!L) continue;
+    let d=carry; while(d<=L){ const t=d/L; out.push({x:x0+(x1-x0)*t,y:y0+(y1-y0)*t}); d+=step; }
+    carry=d-L;
+  }
+  return out;
+}
+function segDist(px,py,[x0,y0],[x1,y1]){
+  const dx=x1-x0,dy=y1-y0,L=dx*dx+dy*dy; let t=L?((px-x0)*dx+(py-y0)*dy)/L:0; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(x0+t*dx),py-(y0+t*dy));
+}
+const money = v => '$'+Math.round(v).toLocaleString('en-US');
+
+// glow sprites, cached by color and radius
+const sprites=new Map();
+function sprite(col,R){
+  R=Math.max(2,Math.round(R)); const k=col+'|'+R; let s=sprites.get(k);
+  if(!s){
+    s=document.createElement('canvas'); s.width=s.height=R*2; const g=s.getContext('2d');
+    const [r,gg,b]=hex(col); const gr=g.createRadialGradient(R,R,0,R,R,R);
+    gr.addColorStop(0,`rgba(${r},${gg},${b},1)`); gr.addColorStop(.15,`rgba(${r},${gg},${b},.5)`);
+    gr.addColorStop(.45,`rgba(${r},${gg},${b},.13)`); gr.addColorStop(1,`rgba(${r},${gg},${b},0)`);
+    g.fillStyle=gr; g.fillRect(0,0,R*2,R*2); sprites.set(k,s);
+  }
+  return s;
+}
+function glow(x,y,col,R,alpha){ const s=sprite(col,R); ctx.globalAlpha=alpha; ctx.drawImage(s,x-s.width/2,y-s.height/2); }
+function bulb(x,y,r,col,I,wash){
+  if(wash) glow(x,y+r*12,col,r*34,I*.07);
+  glow(x,y,col,r*9,Math.min(1,I*.95));
+  ctx.globalAlpha=Math.min(1,.35+I*.8);
+  ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+  ctx.fillStyle='#ffffff'; ctx.globalAlpha=Math.min(1,.2+I*.7); ctx.beginPath(); ctx.arc(x,y,r*.45,0,7); ctx.fill();
+}
+function bulbR(p){ return Math.max(1.5,Math.min(10,PRODUCTS[p].r*state.ppf)); }
+
+function rgbColor(pattern,i,t){
+  if(pattern==='warm') return '#ffc878';
+  if(pattern==='candy') return (i%4<2)?'#ff2d3a':'#ffffff';
+  if(pattern==='redgreen') return (i%2)?'#ff2d3a':'#22e05a';
+  const shift = reduceMotion?0:t*.09;
+  return hueHex(Math.round((i*14+shift)/15)*15);
+}
+
+// ---------- sample house ----------
+function paintSample(){
+  const c=document.createElement('canvas'); c.width=1600; c.height=1000; const g=c.getContext('2d');
+  let gr=g.createLinearGradient(0,0,0,760); gr.addColorStop(0,'#8fb6de'); gr.addColorStop(1,'#dce7f1'); g.fillStyle=gr; g.fillRect(0,0,1600,760);
+  // distant tree line
+  g.fillStyle='#50704f'; g.beginPath(); g.moveTo(0,760);
+  for(let x=0;x<=1600;x+=40){ g.lineTo(x,690+Math.sin(x*.021)*18+Math.sin(x*.057)*10); } g.lineTo(1600,760); g.fill();
+  // lawn
+  gr=g.createLinearGradient(0,760,0,1000); gr.addColorStop(0,'#5f8d40'); gr.addColorStop(1,'#46702f'); g.fillStyle=gr; g.fillRect(0,760,1600,240);
+  // driveway + walk
+  g.fillStyle='#a3a39d'; g.beginPath(); g.moveTo(1210,760); g.lineTo(1400,760); g.lineTo(1580,1000); g.lineTo(1120,1000); g.fill();
+  g.fillStyle='#c9c1b0'; g.beginPath(); g.moveTo(822,760); g.lineTo(878,760); g.lineTo(930,1000); g.lineTo(770,1000); g.fill();
+  // walls
+  const wall=(x,y,w,h)=>{ g.fillStyle='#ebe6da'; g.fillRect(x,y,w,h); g.strokeStyle='#d7d0c1'; g.lineWidth=1.5; for(let yy=y+12;yy<y+h;yy+=13){ g.beginPath(); g.moveTo(x,yy); g.lineTo(x+w,yy); g.stroke(); } };
+  wall(540,420,620,340); wall(1160,560,290,200);
+  g.fillStyle='#9a9489'; g.fillRect(540,742,620,18); g.fillRect(1160,742,290,18);
+  // chimney
+  g.fillStyle='#8a4b3a'; g.fillRect(1000,222,46,80); g.fillStyle='#6e3a2d'; g.fillRect(994,216,58,10);
+  // roofs
+  const roof=(pts)=>{ g.fillStyle='#454b57'; g.beginPath(); g.moveTo(...pts[0]); pts.slice(1).forEach(p=>g.lineTo(...p)); g.closePath(); g.fill();
+    g.save(); g.clip(); g.strokeStyle='rgba(0,0,0,.18)'; g.lineWidth=1; for(let y=0;y<1000;y+=11){ g.beginPath(); g.moveTo(0,y); g.lineTo(1600,y); g.stroke(); } g.restore(); };
+  roof([[510,420],[620,280],[1080,280],[1190,420]]);
+  roof([[1150,560],[1210,480],[1420,480],[1480,560]]);
+  g.fillStyle='#f3f2ee'; g.fillRect(510,418,680,9); g.fillRect(1150,558,330,8);
+  // windows
+  const win=(x,y,w,h,lit)=>{ g.fillStyle='#2f4a3a'; g.fillRect(x-20,y,16,h); g.fillRect(x+w+4,y,16,h);
+    g.fillStyle='#fbfbf8'; g.fillRect(x-4,y-4,w+8,h+8); g.fillStyle=lit?'#e9c98a':'#62788f'; g.fillRect(x,y,w,h);
+    g.fillStyle='rgba(255,255,255,.22)'; g.beginPath(); g.moveTo(x,y); g.lineTo(x+w*.55,y); g.lineTo(x,y+h*.5); g.fill();
+    g.strokeStyle='#fbfbf8'; g.lineWidth=3; g.beginPath(); g.moveTo(x+w/2,y); g.lineTo(x+w/2,y+h); g.moveTo(x,y+h/2); g.lineTo(x+w,y+h/2); g.stroke(); };
+  [585,690,950,1055].forEach((x,i)=>{ win(x,455,60,80,i===2); win(x,598,60,94,i===1); });
+  win(820,455,60,80,false);
+  // garage door
+  g.fillStyle='#f2f0ea'; g.fillRect(1210,612,190,148); g.strokeStyle='#d6d2c8'; g.lineWidth=2;
+  for(let y=648;y<760;y+=37){ g.beginPath(); g.moveTo(1210,y); g.lineTo(1400,y); g.stroke(); }
+  g.fillStyle='#6f8499'; for(let x=1222;x<1400;x+=46) g.fillRect(x,620,36,20);
+  // portico
+  g.fillStyle='#6b1f22'; g.fillRect(820,618,60,124); g.fillStyle='#d8b36a'; g.fillRect(868,680,5,5);
+  g.fillStyle='#fbfbf8'; g.fillRect(778,592,16,150); g.fillRect(906,592,16,150); g.fillRect(768,582,164,12);
+  g.fillStyle='#454b57'; g.beginPath(); g.moveTo(762,584); g.lineTo(850,538); g.lineTo(938,584); g.fill();
+  g.fillStyle='#b9b4aa'; g.fillRect(796,742,108,8); g.fillRect(786,750,128,10);
+  // bushes
+  const bush=(cx)=>{ [[-38,6,30],[-12,-6,34],[18,-4,32],[40,8,26],[0,10,34]].forEach(([dx,dy,r])=>{ g.fillStyle='#2d5a35'; g.beginPath(); g.arc(cx+dx,722+dy,r,0,7); g.fill(); });
+    g.fillStyle='rgba(120,170,90,.25)'; g.beginPath(); g.arc(cx-8,708,18,0,7); g.fill(); };
+  [600,700,1000,1100].forEach(bush);
+  // evergreen
+  g.fillStyle='#5a3b26'; g.fillRect(320,730,20,40);
+  for(let k=0;k<5;k++){ const top=300+k*78, base=top+150, hw=(base-300)/440*115+6; g.fillStyle=k%2?'#24492f':'#2c5838'; g.beginPath(); g.moveTo(330,top); g.lineTo(330-hw,Math.min(base,745)); g.lineTo(330+hw,Math.min(base,745)); g.fill(); }
+  return c;
+}
+function loadSampleDesign(){
+  uid=1; const S=(p,pts,extra)=>({id:uid++,p,pts,...extra});
+  state.strands=[
+    S('c9warm',[[510,421],[620,281],[1080,281],[1190,421]]),
+    S('c9warm',[[512,425],[1188,425]]),
+    S('c9warm',[[1150,559],[1210,481],[1420,481],[1480,559]]),
+    S('icicle',[[1152,565],[1478,565]]),
+    S('rgb',[[764,586],[850,540],[936,586]],{pattern:'candy'}),
+    S('mini',[[330,318],[312,382],[372,455],[270,535],[412,612],[230,700],[438,728]]),
+    S('mini',[[555,712],[600,690],[650,702],[700,688],[748,712]]),
+    S('mini',[[955,712],[1000,690],[1050,702],[1100,688],[1148,712]]),
+  ];
+  state.items=[{id:uid++,p:'wreath',x:850,y:660},{id:uid++,p:'spot',x:560,y:756},{id:uid++,p:'spot',x:1138,y:756}];
+}
+
+// ---------- render ----------
+function render(t){
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
+  ctx.drawImage(bg,0,0,W,H);
+  if(state.compare) return;
+  const n=state.night, I=.3+.7*n;
+
+  // physical objects (darken with the scene)
+  for(const it of state.items){
+    if(it.p==='wreath'){
+      const R=PRODUCTS.wreath.size/2*state.ppf;
+      for(let a=0;a<24;a++){ const an=a/24*Math.PI*2; ctx.fillStyle=a%2?'#1f4a2a':'#2b5f36'; ctx.beginPath(); ctx.arc(it.x+Math.cos(an)*R*.8,it.y+Math.sin(an)*R*.8,R*.28,0,7); ctx.fill(); }
+      ctx.fillStyle='#c0262d'; ctx.beginPath(); ctx.moveTo(it.x,it.y+R*.75); ctx.lineTo(it.x-R*.4,it.y+R*.5); ctx.lineTo(it.x-R*.4,it.y+R*1.05); ctx.closePath(); ctx.moveTo(it.x,it.y+R*.75); ctx.lineTo(it.x+R*.4,it.y+R*.5); ctx.lineTo(it.x+R*.4,it.y+R*1.05); ctx.closePath(); ctx.fill();
+    } else if(it.p==='spot'){
+      ctx.fillStyle='#161616'; ctx.fillRect(it.x-6,it.y-8,12,10);
+    }
+  }
+
+  // night
+  if(n>0){
+    ctx.globalCompositeOperation='multiply'; ctx.fillStyle=mix('#ffffff','#26325a',n); ctx.fillRect(0,0,W,H);
+    ctx.globalCompositeOperation='source-over'; ctx.fillStyle=`rgba(4,7,18,${n*.38})`; ctx.fillRect(0,0,W,H);
+  }
+
+  // light
+  ctx.globalCompositeOperation='lighter';
+  for(const it of state.items){
+    if(it.p==='spot'){
+      const R=4.2*state.ppf;
+      ctx.save(); ctx.beginPath(); ctx.rect(it.x-R*2,0,R*4,it.y+4); ctx.clip();
+      ctx.translate(it.x,it.y); ctx.scale(1,2.5);
+      const cy=-R*.72, g=ctx.createRadialGradient(0,cy,0,0,cy,R);
+      g.addColorStop(0,'rgba(255,214,150,.42)'); g.addColorStop(.6,'rgba(255,200,130,.12)'); g.addColorStop(1,'rgba(255,200,130,0)');
+      ctx.globalAlpha=I; ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,cy,R,0,7); ctx.fill(); ctx.restore();
+      glow(it.x,it.y-6,'#fff1d6',10,I);
+    } else if(it.p==='wreath'){
+      const R=PRODUCTS.wreath.size/2*state.ppf;
+      for(let a=0;a<22;a++){ const an=a/22*Math.PI*2+.1; bulb(it.x+Math.cos(an)*R*.8,it.y+Math.sin(an)*R*.8,1.6,'#ffd996',I,false); }
+    }
+  }
+  const all = state.draft ? [...state.strands, state.draft] : state.strands;
+  for(const s of all) drawStrand(s,I,t);
+
+  ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
+  drawOverlay();
+}
+function drawStrand(s,I,t){
+  const P=PRODUCTS[s.p], r=bulbR(s.p), step=Math.max(r*2.2,P.spacing*state.ppf);
+  const pts = s===state.draft && state.cursor && state.mode==='draw' ? [...s.pts,[state.cursor.x,state.cursor.y]] : s.pts;
+  const b=sample(pts,step);
+  if(P.kind==='icicle'){
+    b.forEach((q,i)=>{
+      const L=(.5+rnd(i,s.id)*1.6)*state.ppf, dstep=Math.max(r*2.4,.28*state.ppf);
+      ctx.globalAlpha=.25*I; ctx.strokeStyle='#dfe8ff'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(q.x,q.y); ctx.lineTo(q.x,q.y+L); ctx.stroke();
+      for(let d=0; d<=L; d+=dstep) bulb(q.x,q.y+d,r,P.colors[0],I*.45,false);
+    });
+    return;
+  }
+  b.forEach((q,i)=>{
+    let x=q.x,y=q.y;
+    if(P.jitter){ x+=(rnd(i,s.id)-.5)*r*5; y+=(rnd(s.id,i)-.5)*r*5; }
+    const col = P.kind==='rgb' ? rgbColor(s.pattern,i,t) : P.colors[i%P.colors.length];
+    bulb(x,y,r,col,I,P.wash && i%2===0);
+  });
+}
+function drawOverlay(){
+  const k=W/cv.getBoundingClientRect().width || 1;
+  ctx.lineWidth=1.5*k;
+  if(state.draft && state.draft.pts.length){
+    ctx.setLineDash([6*k,5*k]); ctx.strokeStyle='rgba(255,198,110,.9)';
+    const p=state.draft.pts; ctx.beginPath(); ctx.moveTo(...p[0]); p.slice(1).forEach(q=>ctx.lineTo(...q)); if(state.cursor) ctx.lineTo(state.cursor.x,state.cursor.y); ctx.stroke(); ctx.setLineDash([]);
+    p.forEach(q=>handle(q[0],q[1],k,false));
+  }
+  if(state.sel){
+    const o=findSel();
+    if(o && state.sel.type==='strand'){
+      ctx.setLineDash([5*k,4*k]); ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.beginPath(); ctx.moveTo(...o.pts[0]); o.pts.slice(1).forEach(q=>ctx.lineTo(...q)); ctx.stroke(); ctx.setLineDash([]);
+      o.pts.forEach(q=>handle(q[0],q[1],k,true));
+    } else if(o){
+      ctx.setLineDash([5*k,4*k]); ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(o.x,o.p==='spot'?o.y-10:o.y,itemRadius(o)+6*k,0,7); ctx.stroke(); ctx.setLineDash([]);
+    }
+  }
+  if(state.scalePts){
+    const p=state.scalePts; ctx.strokeStyle='#f3a95c'; ctx.lineWidth=3*k; ctx.beginPath(); ctx.moveTo(...p[0]); ctx.lineTo(...(p[1]||[state.cursor?.x??p[0][0],state.cursor?.y??p[0][1]])); ctx.stroke();
+    p.forEach(q=>{ ctx.fillStyle='#f3a95c'; ctx.beginPath(); ctx.arc(q[0],q[1],5*k,0,7); ctx.fill(); });
+  }
+}
+function handle(x,y,k,white){ ctx.fillStyle=white?'#ffffff':'#ffc66e'; ctx.strokeStyle='#0c1220'; ctx.lineWidth=2*k; ctx.beginPath(); ctx.arc(x,y,5.5*k,0,7); ctx.fill(); ctx.stroke(); }
+function itemRadius(it){ return it.p==='wreath' ? PRODUCTS.wreath.size/2*state.ppf : 14; }
+
+// ---------- loop ----------
+let dirty=true;
+function changed(){ dirty=true; updateUI(); }
+function tick(t){
+  const anim = !reduceMotion && [...state.strands, ...(state.draft?[state.draft]:[])].some(s=>s.p==='rgb'&&s.pattern==='rainbow');
+  if(dirty||anim){ render(t); dirty=false; }
+  requestAnimationFrame(tick);
+}
+
+// ---------- input ----------
+function pos(e){ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*W/r.width, y:(e.clientY-r.top)*H/r.height, k:W/r.width}; }
+function findSel(){ if(!state.sel) return null; const arr=state.sel.type==='strand'?state.strands:state.items; return arr.find(o=>o.id===state.sel.id)||null; }
+function hitTest(p){
+  const tol=14*p.k;
+  const cur=findSel();
+  if(cur && state.sel.type==='strand'){ const i=cur.pts.findIndex(q=>Math.hypot(q[0]-p.x,q[1]-p.y)<tol); if(i>=0) return {kind:'vertex',o:cur,i}; }
+  for(let j=state.items.length-1;j>=0;j--){ const it=state.items[j]; const cy=it.p==='spot'?it.y-10:it.y; if(Math.hypot(it.x-p.x,cy-p.y)<Math.max(tol,itemRadius(it))) return {kind:'item',o:it}; }
+  for(let j=state.strands.length-1;j>=0;j--){ const s=state.strands[j]; for(let i=1;i<s.pts.length;i++) if(segDist(p.x,p.y,s.pts[i-1],s.pts[i])<tol) return {kind:'strand',o:s}; }
+  return null;
+}
+let drag=null;
+cv.addEventListener('pointerdown',e=>{
+  const p=pos(e); cv.setPointerCapture(e.pointerId);
+  if(state.mode==='scale'){
+    if(!state.scalePts||state.scalePts.length===2) state.scalePts=[[p.x,p.y]];
+    else { state.scalePts.push([p.x,p.y]); scaleReady(); }
+    changed(); return;
+  }
+  if(state.mode==='draw'){
+    const P=PRODUCTS[state.product];
+    if(P.kind==='item'||P.kind==='spot'){
+      pushHistory(); const it={id:uid++,p:state.product,x:p.x,y:p.y}; state.items.push(it);
+      state.sel={type:'item',id:it.id}; hint(`${P.name} placed. Click again to add another, or drag it with <b>Select &amp; move</b>.`); changed(); return;
+    }
+    if(!state.draft) state.draft={id:uid++,p:state.product,pts:[],pattern:state.pattern};
+    const last=state.draft.pts[state.draft.pts.length-1];
+    if(!last || Math.hypot(last[0]-p.x,last[1]-p.y)>3*p.k) state.draft.pts.push([p.x,p.y]);
+    changed(); return;
+  }
+  // select mode
+  const h=hitTest(p);
+  if(!h){ state.sel=null; changed(); return; }
+  pushHistory();
+  if(h.kind==='vertex'){ drag={kind:'vertex',o:h.o,i:h.i}; }
+  else if(h.kind==='item'){ state.sel={type:'item',id:h.o.id}; drag={kind:'item',o:h.o,dx:p.x-h.o.x,dy:p.y-h.o.y}; }
+  else { state.sel={type:'strand',id:h.o.id}; drag={kind:'strand',o:h.o,sx:p.x,sy:p.y,orig:h.o.pts.map(q=>q.slice())}; }
+  drag.moved=false; changed();
+});
+cv.addEventListener('pointermove',e=>{
+  const p=pos(e); state.cursor={x:p.x,y:p.y};
+  if(drag){
+    drag.moved=true;
+    if(drag.kind==='vertex'){ drag.o.pts[drag.i]=[p.x,p.y]; }
+    else if(drag.kind==='item'){ drag.o.x=p.x-drag.dx; drag.o.y=p.y-drag.dy; }
+    else { const dx=p.x-drag.sx, dy=p.y-drag.sy; drag.o.pts=drag.orig.map(q=>[q[0]+dx,q[1]+dy]); }
+    changed(); return;
+  }
+  if(state.mode==='draw'&&state.draft || state.mode==='scale'&&state.scalePts?.length===1) dirty=true;
+});
+cv.addEventListener('pointerup',()=>{ if(drag && !drag.moved) history.pop(); drag=null; });
+cv.addEventListener('pointerleave',()=>{ state.cursor=null; dirty=true; });
+cv.addEventListener('dblclick',()=>{ if(state.mode==='draw') finishDraft(); });
+
+function finishDraft(){
+  const d=state.draft; state.draft=null;
+  if(d && d.pts.length>=2){ pushHistory(); state.strands.push(d); hint(`Strand added: <b>${Math.round(polyLen(d.pts)/state.ppf)} ft</b>. Click to start another, or switch to <b>Select &amp; move</b> to adjust it.`); }
+  changed();
+}
+addEventListener('keydown',e=>{
+  if(e.target.matches('input,select,textarea')) return;
+  if(e.key==='Enter'&&state.draft){ finishDraft(); e.preventDefault(); }
+  else if(e.key==='Escape'){ state.draft=null; state.sel=null; if(state.mode==='scale') endScale(); changed(); }
+  else if((e.key==='Delete'||e.key==='Backspace')&&state.sel){ deleteSel(); e.preventDefault(); }
+  else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){ undo(); e.preventDefault(); }
+});
+function deleteSel(){
+  if(!state.sel) return; pushHistory();
+  if(state.sel.type==='strand') state.strands=state.strands.filter(s=>s.id!==state.sel.id); else state.items=state.items.filter(s=>s.id!==state.sel.id);
+  state.sel=null; changed();
+}
+
+// ---------- scale ----------
+const scaleBox=document.getElementById('scaleBox'), scaleMsg=document.getElementById('scaleMsg'), scaleEntry=document.getElementById('scaleEntry');
+function startScale(){ finishDraft(); state.mode='scale'; state.scalePts=null; scaleBox.hidden=false; scaleEntry.hidden=true; scaleMsg.textContent='Click two points on the photo, for example both edges of the garage door.'; hint('Scale: click <b>two points</b> along something you know the length of.'); changed(); }
+function scaleReady(){ scaleEntry.hidden=false; scaleMsg.textContent='How long is that line in real life?'; document.getElementById('scaleFt').focus(); }
+function endScale(){ state.mode='draw'; state.scalePts=null; scaleBox.hidden=true; }
+document.getElementById('scaleBtn').onclick=startScale;
+document.getElementById('scaleApply').onclick=()=>{
+  const ft=parseFloat(document.getElementById('scaleFt').value); const p=state.scalePts;
+  if(!(ft>0)||!p||p.length<2){ scaleMsg.textContent='Enter a length in feet, then try again.'; return; }
+  state.ppf=Math.hypot(p[1][0]-p[0][0],p[1][1]-p[0][1])/ft; state.scaleEstimated=false; sprites.clear();
+  endScale(); hint(`Scale set: <b>${state.ppf.toFixed(1)} px per ft</b>. Now pick a light and hang it.`); setStep(2); changed();
+};
+
+// ---------- upload ----------
+function loadImage(file){
+  if(!file||!file.type.startsWith('image/')) { hint('That file is not an image. Choose a JPG or PNG photo.'); return; }
+  const url=URL.createObjectURL(file); const img=new Image();
+  img.onload=()=>{
+    const s=Math.min(1,1600/img.naturalWidth); const c=document.createElement('canvas');
+    c.width=Math.round(img.naturalWidth*s); c.height=Math.round(img.naturalHeight*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(url);
+    bg=c; W=cv.width=c.width; H=cv.height=c.height;
+    pushHistory(); state.strands=[]; state.items=[]; state.draft=null; state.sel=null;
+    state.ppf=W/50; state.scaleEstimated=true; state.sample=false; sprites.clear();
+    document.getElementById('sampleFlag').hidden=true;
+    setStep(1); startScale();
+  };
+  img.onerror=()=>hint('That photo could not be opened. Try a different JPG or PNG.');
+  img.src=url;
+}
+const drop=document.getElementById('drop');
+document.getElementById('file').onchange=e=>loadImage(e.target.files[0]);
+drop.addEventListener('dragover',e=>{e.preventDefault(); drop.classList.add('drag');});
+drop.addEventListener('dragleave',()=>drop.classList.remove('drag'));
+drop.addEventListener('drop',e=>{e.preventDefault(); drop.classList.remove('drag'); loadImage(e.dataTransfer.files[0]);});
+document.getElementById('useSample').onclick=()=>{
+  bg=paintSample(); W=cv.width=1600; H=cv.height=1000; state.ppf=15.5; state.scaleEstimated=false; state.sample=true; sprites.clear();
+  pushHistory(); loadSampleDesign(); state.sel=null; state.draft=null; document.getElementById('sampleFlag').hidden=false; endScale(); setStep(2); changed();
+};
+
+// ---------- UI ----------
+const hintEl=document.getElementById('hint');
+function hint(h){ hintEl.innerHTML=h; }
+function modeHint(){
+  if(state.mode==='select') return hint('Click a strand to select it. Drag the white dots to reshape it, or drag the strand to move it.');
+  const P=PRODUCTS[state.product];
+  if(P.kind==='item'||P.kind==='spot') return hint(`Click where the <b>${P.name}</b> should go.`);
+  hint(`Click along the house to hang <b>${P.name}</b>. Double-click or press <b>Finish</b> to end the strand.`);
+}
+const prodWrap=document.getElementById('products');
+function swatch(key){
+  const c=document.createElement('canvas'); c.width=88; c.height=44; const g=c.getContext('2d'); g.fillStyle='#070b14'; g.fillRect(0,0,88,44);
+  g.globalCompositeOperation='lighter';
+  const P=PRODUCTS[key]; const cols = key==='rgb'?['#ff2d3a','#ffffff']:(P.colors||['#ffd996']);
+  if(P.kind==='spot'){ const gr=g.createRadialGradient(44,20,0,44,20,30); gr.addColorStop(0,'rgba(255,214,150,.8)'); gr.addColorStop(1,'rgba(255,214,150,0)'); g.fillStyle=gr; g.fillRect(0,0,88,44); }
+  else if(P.kind==='item'){ for(let a=0;a<14;a++){ const an=a/14*6.283; g.fillStyle='#ffd996'; g.beginPath(); g.arc(44+Math.cos(an)*13,22+Math.sin(an)*13,2,0,7); g.fill(); } }
+  else { const n=P.spacing<.5?14:7; for(let i=0;i<n;i++){ const x=8+i*(72/(n-1)), y=P.kind==='icicle'?14:22; const col=cols[i%cols.length]; const gr=g.createRadialGradient(x,y,0,x,y,9); gr.addColorStop(0,col); gr.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=gr; g.fillRect(x-9,y-9,18,18); if(P.kind==='icicle'){ for(let d=6;d<6+(i%3+1)*7;d+=6){ g.fillStyle=col; g.beginPath(); g.arc(x,y+d,1.3,0,7); g.fill(); } } } }
+  return c.toDataURL();
+}
+Object.entries(PRODUCTS).forEach(([k,P])=>{
+  const b=document.createElement('button'); b.className='prod'; b.dataset.p=k;
+  b.innerHTML=`<span class="sw" style="background:url(${swatch(k)}) center/cover"></span><span>${P.name}</span><span class="pr">$${P.each?P.rate:P.rate.toFixed(2)}${P.each?'/ea':'/ft'}</span>`;
+  b.onclick=()=>{ finishDraft(); if(state.mode==='scale') endScale(); state.product=k; state.mode='draw'; state.sel=null; modeHint(); changed(); };
+  prodWrap.appendChild(b);
+});
+document.getElementById('modeSelect').onclick=()=>{ finishDraft(); if(state.mode==='scale') endScale(); state.mode='select'; modeHint(); changed(); };
+document.getElementById('modeDraw').onclick=()=>{ if(state.mode==='scale') endScale(); state.mode='draw'; state.sel=null; modeHint(); changed(); };
+document.getElementById('finish').onclick=finishDraft;
+document.getElementById('delSel').onclick=deleteSel;
+document.getElementById('undo').onclick=undo;
+document.getElementById('clearAll').onclick=()=>{ pushHistory(); state.strands=[]; state.items=[]; state.draft=null; state.sel=null; hint('Cleared. <b>Undo</b> brings it back.'); changed(); };
+document.getElementById('night').oninput=e=>{ state.night=e.target.value/100; dirty=true; };
+const cmp=document.getElementById('compare');
+const cmpOn=e=>{ e.preventDefault(); state.compare=true; dirty=true; }, cmpOff=()=>{ state.compare=false; dirty=true; };
+cmp.addEventListener('pointerdown',cmpOn); cmp.addEventListener('pointerup',cmpOff); cmp.addEventListener('pointerleave',cmpOff);
+cmp.addEventListener('keydown',e=>{ if(e.key===' '||e.key==='Enter') cmpOn(e); }); cmp.addEventListener('keyup',cmpOff);
+document.getElementById('pattern').onchange=e=>{
+  state.pattern=e.target.value; if(state.draft) state.draft.pattern=state.pattern;
+  const o=findSel(); if(o&&o.p==='rgb'){ pushHistory(); o.pattern=state.pattern; }
+  changed();
+};
+
+function setStep(n){
+  state.step=n;
+  [1,2,3].forEach(i=>{ document.getElementById('pane'+i).hidden=i!==n; document.getElementById('tab'+i).setAttribute('aria-selected',String(i===n)); });
+  if(n===3){ finishDraft(); state.sel=null; buildBom(); hint('Here is your design. Send it to get a visit and a final price.'); dirty=true; }
+  else if(n===2) modeHint();
+  else if(state.mode!=='scale') hint('Upload a photo of your house, or keep the sample.');
+}
+document.querySelectorAll('.steps button').forEach(b=>b.onclick=()=>setStep(+b.dataset.step));
+document.getElementById('toQuote').onclick=()=>setStep(3);
+
+function totals(){
+  const rows={};
+  for(const s of state.strands){ const ft=polyLen(s.pts)/state.ppf; const key=s.p==='rgb'?'rgb:'+s.pattern:s.p; rows[key]=rows[key]||{p:s.p,qty:0,pattern:s.pattern}; rows[key].qty+=ft; }
+  for(const it of state.items){ rows[it.p]=rows[it.p]||{p:it.p,qty:0}; rows[it.p].qty+=1; }
+  let sum=0, ft=0;
+  const list=Object.values(rows).map(r=>{ const P=PRODUCTS[r.p]; const q=P.each?r.qty:Math.round(r.qty); const cost=q*P.rate; sum+=cost; if(!P.each) ft+=q; return {...r,q,cost,P}; });
+  return {list,sum,ft};
+}
+const patternName={warm:'warm white',candy:'candy cane',redgreen:'red & green',rainbow:'rainbow chase'};
+function buildBom(){
+  const {list,sum}=totals();
+  const t=document.getElementById('bom');
+  t.innerHTML='<tr><th>Item</th><th class="num">Qty</th><th class="num">Est.</th></tr>'+
+    list.map(r=>`<tr><td>${r.P.name}${r.p==='rgb'?' ('+patternName[r.pattern]+')':''}</td><td class="num">${r.q}${r.P.each?'':' ft'}</td><td class="num">${money(r.cost)}</td></tr>`).join('')+
+    `<tr><td><b>Total estimate</b></td><td></td><td class="num"><b>${money(sum)}</b></td></tr>`+
+    (state.scaleEstimated?`<tr><td colspan="3" class="fine" style="color:var(--warn)">Scale is a guess. Set it in step 1 for real footage.</td></tr>`:'');
+}
+function updateUI(){
+  document.getElementById('modeSelect').setAttribute('aria-pressed',String(state.mode==='select'));
+  document.getElementById('modeDraw').setAttribute('aria-pressed',String(state.mode==='draw'));
+  cv.classList.toggle('select',state.mode==='select');
+  prodWrap.querySelectorAll('.prod').forEach(b=>b.setAttribute('aria-pressed',String(state.mode==='draw'&&b.dataset.p===state.product)));
+  const o=findSel();
+  document.getElementById('patternField').hidden=!((state.mode==='draw'&&state.product==='rgb')||(o&&o.p==='rgb'));
+  if(o&&o.p==='rgb') document.getElementById('pattern').value=o.pattern;
+  document.getElementById('finish').hidden=!(state.draft&&state.draft.pts.length>=1);
+  const sb=document.getElementById('selBox'); sb.hidden=!o;
+  if(o){ const P=PRODUCTS[o.p]; document.getElementById('selText').innerHTML = o.pts ? `<b>${P.name}</b><br><span class="fine">${Math.round(polyLen(o.pts)/state.ppf)} ft</span>` : `<b>${P.name}</b>`; }
+  const {sum,ft}=totals();
+  document.getElementById('ftTotal').textContent=`${ft} ft of lights${state.scaleEstimated?' (scale not set)':''}`;
+  document.getElementById('estTotal').textContent=money(sum);
+  document.getElementById('undo').disabled=!history.length&&!(state.draft&&state.draft.pts.length);
+  if(state.step===3) buildBom();
+}
+
+document.getElementById('leadForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const sel=state.sel; state.sel=null; render(performance.now()); state.sel=sel;
+  document.getElementById('leadImg').src=cv.toDataURL('image/jpeg',.82);
+  const {list,sum,ft}=totals();
+  const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const now=new Date().toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit'});
+  document.getElementById('leadBody').innerHTML=
+    `<span class="when">New lead · ${now}</span>`+
+    `<b>${esc(document.getElementById('lname').value)}</b>`+
+    `<span class="fine">${esc(document.getElementById('lemail').value)} · ${esc(document.getElementById('lphone').value)}</span>`+
+    `<span>${ft} ft of lights, ${list.filter(r=>r.P.each).reduce((a,r)=>a+r.q,0)} accent pieces · <b>${money(sum)}</b> est.</span>`+
+    `<span class="fine">${list.map(r=>r.P.name.split(',')[0]).join(' · ')}</span>`;
+  document.getElementById('leadOut').hidden=false;
+  document.getElementById('leadForm').hidden=true;
+  hint('Design sent. In the real product this lands in the contractor’s lead inbox with the photo and footage attached.');
+});
+
+// ---------- boot ----------
+bg=paintSample(); loadSampleDesign(); setStep(2); updateUI(); requestAnimationFrame(tick);
+})();
+</script>
